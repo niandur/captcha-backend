@@ -40,6 +40,7 @@ def captura():
             datos.get("clics"),
             datos.get("label"),
             datos.get("tipo_fuente")
+            movimientos_json
         )
 
         cursor.execute(sql, valores)
