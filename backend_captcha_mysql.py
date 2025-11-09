@@ -23,38 +23,44 @@ def captura():
     datos = request.get_json()
     print("🧾 Recibido:", datos)
 
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+       try:
+        conn = mysql.connector.connect(
+            host="qaot733.niandur.com",
+            user="qaot733",
+            password="Omega73bd!",
+            database="qaot733"
+        )
         cursor = conn.cursor()
 
-        query = """
-        INSERT INTO captcha_resultados (
-            nombre, email, duracion_total_ms,
-            longitud_trayectoria, clics, label, tipo_fuente, fecha
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        sql = """
+            INSERT INTO captcha_resultados (
+                nombre, email, duracion_total_ms,
+                longitud_trayectoria, clics,
+                label, tipo_fuente, fecha
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
         """
 
         valores = (
-            datos.get("nombre", ""),
-            datos.get("email", ""),
-            float(datos.get("duracion_total_ms", 0)),
-            int(datos.get("longitud_trayectoria", 0)),
-            int(datos.get("clics", 0)),
-            int(datos.get("label", 0)),
-            datos.get("tipo_fuente", "web"),
-            datetime.now()
+            datos.get("nombre"),
+            datos.get("email"),
+            datos.get("duracion_total_ms"),
+            datos.get("longitud_trayectoria"),
+            datos.get("clics"),
+            datos.get("label"),
+            datos.get("tipo_fuente")
         )
 
-        cursor.execute(query, valores)
+        cursor.execute(sql, valores)
         conn.commit()
+
         cursor.close()
         conn.close()
 
         return jsonify({"mensaje": "Datos insertados en la base de datos correctamente."})
 
-    except mysql.connector.Error as err:
-        return jsonify({"error": str(err)}), 500
-
+    except Exception as e:
+        print("❌ Error en backend:", e)
+        return jsonify({"error": str(e)}), 500
 @app.route("/", methods=["GET"])
 def home():
     return "Backend activo y conectado a MySQL"
