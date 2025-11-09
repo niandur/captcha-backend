@@ -39,7 +39,7 @@ def captura():
             datos.get("longitud_trayectoria"),
             datos.get("clics"),
             datos.get("label"),
-            datos.get("tipo_fuente")
+            datos.get("tipo_fuente"),
             movimientos_json
         )
 
