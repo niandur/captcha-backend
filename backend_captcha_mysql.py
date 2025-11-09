@@ -6,7 +6,7 @@ from flask_cors import CORS
 import os
 
 app = Flask(__name__)
-CORS(app, origins=["http://www.niandur.com"])
+CORS(app, resources={r"/*": {"origins": "*"}})
 # Configuración de la base de datos MySQL (puede usarse con variables de entorno)
 DB_CONFIG = {
     "host": "qaot733.niandur.com",
@@ -15,8 +15,11 @@ DB_CONFIG = {
     "database": "qaot733"
 }
 
-@app.route("/captura", methods=["POST"])
+@app.route("/captura", methods=["POST", "OPTIONS"])
 def captura():
+    def captura():
+    if request.method == "OPTIONS":
+        return '', 204  # Respuesta vacía para preflight
     datos = request.get_json()
 
     try:
