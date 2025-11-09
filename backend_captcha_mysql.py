@@ -2,6 +2,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import mysql.connector
+import json
 
 app = Flask(__name__)
 CORS(app, origins=["https://www.niandur.com"], methods=["GET", "POST", "OPTIONS"], allow_headers=["Content-Type"])
@@ -22,13 +23,13 @@ def captura():
             database="qaot733"
         )
         cursor = conn.cursor()
-
+        movimientos_json = json.dumps(datos.get("movimientos", []))
         sql = """
             INSERT INTO captcha_resultados (
                 nombre, email, duracion_total_ms,
                 longitud_trayectoria, clics,
-                label, tipo_fuente, fecha
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                label, tipo_fuente, movimientos_json, fecha
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
         """
 
         valores = (
