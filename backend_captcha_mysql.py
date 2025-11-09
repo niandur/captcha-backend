@@ -2,10 +2,11 @@
 from flask import Flask, request, jsonify
 import mysql.connector
 from datetime import datetime
+from flask_cors import CORS
 import os
 
 app = Flask(__name__)
-
+CORS(app, origins=["http://www.niandur.com"])
 # Configuración de la base de datos MySQL (puede usarse con variables de entorno)
 DB_CONFIG = {
     "host": "qaot733.niandur.com",
