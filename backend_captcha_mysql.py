@@ -1,29 +1,20 @@
 
 from flask import Flask, request, jsonify
-import mysql.connector
-from datetime import datetime
 from flask_cors import CORS
-import os
+import mysql.connector
 
 app = Flask(__name__)
 CORS(app, origins=["https://www.niandur.com"], methods=["GET", "POST", "OPTIONS"], allow_headers=["Content-Type"])
-# Configuración de la base de datos MySQL (puede usarse con variables de entorno)
-DB_CONFIG = {
-    "host": "qaot733.niandur.com",
-    "user": "qaot733",
-    "password": "Omega73bd!",
-    "database": "qaot733"
-}
 
 @app.route("/captura", methods=["POST", "OPTIONS"])
 def captura():
-    def captura():
     if request.method == "OPTIONS":
-        return '', 204  # Respuesta vacía para preflight
+        return '', 204  # Preflight CORS OK
+
     datos = request.get_json()
     print("🧾 Recibido:", datos)
 
-       try:
+    try:
         conn = mysql.connector.connect(
             host="qaot733.niandur.com",
             user="qaot733",
@@ -56,15 +47,11 @@ def captura():
         cursor.close()
         conn.close()
 
-        return jsonify({"mensaje": "Datos insertados en la base de datos correctamente."})
+        return jsonify({"message": "Datos insertados en la base de datos correctamente"})
 
     except Exception as e:
         print("❌ Error en backend:", e)
         return jsonify({"error": str(e)}), 500
-@app.route("/", methods=["GET"])
-def home():
-    return "Backend activo y conectado a MySQL"
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=5000)
