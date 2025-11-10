@@ -5,7 +5,8 @@ import mysql.connector
 import json
 
 app = Flask(__name__)
-CORS(app, origins=["https://www.niandur.com"], methods=["GET", "POST", "OPTIONS"], allow_headers=["Content-Type"])
+CORS(app, origins=["https://www.niandur.com", "http://127.0.0.1:5500"], methods=["GET", "POST", "OPTIONS"], allow_headers=["Content-Type"])
+#CORS(app, origins=["https://www.niandur.com"], methods=["GET", "POST", "OPTIONS"], allow_headers=["Content-Type"])
 
 @app.route("/captura", methods=["POST", "OPTIONS"])
 def captura():
@@ -29,7 +30,7 @@ def captura():
                 nombre, email, duracion_total_ms,
                 longitud_trayectoria, clics,
                 label, tipo_fuente, fecha
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
         """
 
         valores = (
