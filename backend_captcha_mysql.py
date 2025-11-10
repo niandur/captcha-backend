@@ -13,7 +13,7 @@ def captura():
         return '', 204  # Preflight CORS OK
 
     datos = request.get_json()
-    #print("🧾 Recibido:", datos)
+    print("🧾 Recibido:", datos)
 
     try:
         conn = mysql.connector.connect(
