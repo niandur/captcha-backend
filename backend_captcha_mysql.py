@@ -24,13 +24,14 @@ def captura():
             database="qaot733"
         )
         cursor = conn.cursor()
+        movimientos_json = json.dumps(datos.get("movimientos") or [])
         #movimientos_json = json.dumps(datos.get("movimientos", []))
         sql = """
             INSERT INTO captcha_resultados (
                 nombre, email, duracion_total_ms,
                 longitud_trayectoria, clics,
                 label, tipo_fuente, fecha
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
         """
 
         valores = (
@@ -41,7 +42,7 @@ def captura():
             datos.get("clics"),
             datos.get("label"),
             datos.get("tipo_fuente"),
-            #movimientos_json
+            movimientos_json
         )
 
         cursor.execute(sql, valores)
