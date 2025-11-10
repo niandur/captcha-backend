@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import mysql.connector
 import json
+import traceback  # Para ver el error completo
 
 app = Flask(__name__)
 CORS(app, origins=["https://www.niandur.com", "http://127.0.0.1:5500"], methods=["GET", "POST", "OPTIONS"], allow_headers=["Content-Type"])
@@ -44,7 +45,7 @@ def captura():
             datos.get("tipo_fuente"),
             movimientos_json
         )
-
+        print("📥 Insertando valores:", valores)  # debug
         cursor.execute(sql, valores)
         conn.commit()
 
@@ -55,6 +56,7 @@ def captura():
 
     except Exception as e:
         print("❌ Error en backend:", e)
+        traceback.print_exc()  # muestra dónde falla exactamente
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
