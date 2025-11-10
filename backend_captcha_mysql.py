@@ -31,8 +31,8 @@ def captura():
             INSERT INTO captcha_resultados (
                 nombre, email, duracion_total_ms,
                 longitud_trayectoria, clics,
-                label, tipo_fuente, fecha
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                label, tipo_fuente, movimientos_json
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
 
         valores = (
