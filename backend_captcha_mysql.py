@@ -12,7 +12,7 @@ def captura():
     if request.method == "OPTIONS":
         return '', 204  # Preflight CORS OK
 
-    #datos = request.get_json()
+    datos = request.get_json()
     #print("🧾 Recibido:", datos)
 
     try:
