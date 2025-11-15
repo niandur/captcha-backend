@@ -12,7 +12,19 @@ from datetime import datetime
 # ---------------------------------------------
 
 app = Flask(__name__)
-CORS(app, origins=["https://www.niandur.com", "http://127.0.0.1:5500"], methods=["GET", "POST", "OPTIONS"], allow_headers=["Content-Type"])
+from flask_cors import CORS
+
+CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "https://www.niandur.com",
+            "https://niandur.com"
+            "http://127.0.0.1:5500"
+        ],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 
 # Carpeta donde guardamos los JSON de movimientos
 DATA_FOLDER = "data_sessions"
