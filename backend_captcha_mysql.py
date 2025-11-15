@@ -128,8 +128,10 @@ def guardar_captcha():
         })
 
     except Exception as e:
-        print("Error:", e)
-        return jsonify({"status": "error", "message": str(e)}), 500
+    import traceback
+    print("🔥 ERROR EN BACKEND:")
+    traceback.print_exc()
+    return jsonify({"error": str(e)}), 500
 
 
 # ---------------------------------------------
