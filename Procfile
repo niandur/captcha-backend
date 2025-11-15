@@ -1,1 +1,1 @@
-web: python backend_captcha_recoleccion.py
+web: python backend_captcha_mysql.py
