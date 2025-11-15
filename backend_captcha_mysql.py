@@ -12,13 +12,13 @@ from datetime import datetime
 # ---------------------------------------------
 
 app = Flask(__name__)
-from flask_cors import CORS
 
+# CONFIGURACIÓN CORS CORRECTA
 CORS(app, resources={
     r"/*": {
         "origins": [
             "https://www.niandur.com",
-            "https://niandur.com"
+            "https://niandur.com",
             "http://127.0.0.1:5500"
         ],
         "methods": ["GET", "POST", "OPTIONS"],
@@ -44,8 +44,12 @@ def get_connection():
 # ENDPOINT PRINCIPAL
 # ---------------------------------------------
 
-@app.route('/guardar_captcha', methods=['POST'])
+@app.route('/guardar_captcha', methods=['POST', 'OPTIONS'])
 def guardar_captcha():
+
+    # ⭐ RESPUESTA AL PREFLIGHT REQUEST ⭐
+    if request.method == 'OPTIONS':
+        return '', 200
 
     try:
         data = request.json
@@ -72,7 +76,7 @@ def guardar_captcha():
         # Ruta del archivo JSON donde guardamos los movimientos
         json_path = os.path.join(DATA_FOLDER, f"{session_id}.json")
 
-        # Creamos el JSON con estructura estándar compatible con Web Bot Dataset
+        # JSON compatible con Web Bot Dataset
         json_data = {
             "session_id": session_id,
             "source": tipo_fuente,
@@ -109,7 +113,7 @@ def guardar_captcha():
             longitud_trayectoria,
             json_path,
             tipo_fuente,
-            label,
+            label
         )
 
         cursor.execute(query, values)
