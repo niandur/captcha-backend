@@ -1,0 +1,61 @@
+# ============================
+# STANDARD SETTINGS
+# ============================
+
+# Normaliza saltos de línea para todos los archivos de texto
+* text=auto
+
+# ============================
+# PYTHON FILES
+# ============================
+
+# Los .py deben mantener LF (estándar en Python)
+*.py text eol=lf
+
+# ============================
+# JSON FILES
+# ============================
+
+*.json text eol=lf
+
+# ============================
+# SHELL SCRIPTS
+# ============================
+
+*.sh text eol=lf
+
+# ============================
+# HTML / JS / CSS
+# ============================
+
+*.html text eol=lf
+*.js   text eol=lf
+*.css  text eol=lf
+
+# ============================
+# WINDOWS-SPECIFIC FILES
+# ============================
+
+# Mantener CRLF solo cuando lo necesiten explícitamente (ej: .bat)
+*.bat text eol=crlf
+
+# ============================
+# BINARY FILES
+# ============================
+
+# No tocar binarios ni generar conflictos
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.pdf binary
+*.exe binary
+
+# ============================
+# DATA EXPORTS
+# ============================
+
+*.csv text eol=lf
+*.log text eol=lf
