@@ -81,7 +81,10 @@ def guardar_captcha():
             "screen_height": screen_height,
             "timestamp": datetime.utcnow().isoformat()
         }
-
+        json_path = os.path.join(DATA_FOLDER, f"{session_id}.json")
+        print("📁 DATA_FOLDER:", DATA_FOLDER)
+        print("📄 json_path:", json_path)
+        print("🔎 ¿Existe carpeta?:", os.path.isdir(DATA_FOLDER))
         # Guardar archivo JSON
         with open(json_path, "w") as f:
             json.dump(json_data, f)
