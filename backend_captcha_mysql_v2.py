@@ -12,11 +12,13 @@ app = Flask(__name__)
 from flask_cors import CORS
 CORS(app, resources={r"/*": {"origins": "*"}})
 
+# Inicializa la variable globalmente
+SCALER = None
 # --- 1. CARGA DEL MODELO ---
 # Asegúrate de subir 'modelo_bot_final.pkl' a la misma carpeta
 try:
     MODELO = joblib.load('modelo_bot_final.pkl')
-    SCALER = joblib.load('scaler_web_v2.pkl')
+    SCALER = joblib.load('scaler_final.pkl')
     print("✅ Modelo cargado correctamente.")
 except:
     print("⚠️ ADVERTENCIA: No se encontró 'modelo_bot_final.pkl'. La predicción fallará.")
