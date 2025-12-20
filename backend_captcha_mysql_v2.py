@@ -107,9 +107,16 @@ def guardar_captcha():
         movimientos = datos.get("movimientos") or []
         X_input = calcular_features(movimientos)
         
+        print("--- ORDEN DE COLUMNAS ---")
+        print(X_input.columns.tolist()) 
+
+        print("--- VALORES DE EJEMPLO ---")
+        print(X_input.iloc[0].to_dict())
+        
         # Predicción: 0=Humano, 1=Bot (según tu entrenamiento)
         # Nota: Ajusta esto si tu etiqueta 1 es Humano. 
         # En tu árbol: class 1 solía ser Bot.
+
         es_bot = int(MODELO.predict(X_input)[0]) if MODELO else 0
         probabilidad = float(MODELO.predict_proba(X_input)[0][1]) if MODELO else 0.0
         
