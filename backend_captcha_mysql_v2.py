@@ -107,12 +107,13 @@ def guardar_captcha():
         movimientos = datos.get("movimientos") or []
         X_input = calcular_features(movimientos)
         
-        print("--- ORDEN DE COLUMNAS ---")
-        print(X_input.columns.tolist()) 
+        print("--- ORDEN DE COLUMNAS ---", flush=True)      # <--- AÑADIR flush=True
+        print(X_input.columns.tolist(), flush=True)         # <--- AÑADIR flush=True
 
-        print("--- VALORES DE EJEMPLO ---")
-        print(X_input.iloc[0].to_dict())
-        
+        print("--- VALORES DE EJEMPLO ---", flush=True)     # <--- AÑADIR flush=True
+        # Convertimos a string para asegurar que se imprime todo
+        print(str(X_input.iloc[0].to_dict()), flush=True)   # <--- AÑADIR flush=True
+
         # Predicción: 0=Humano, 1=Bot (según tu entrenamiento)
         # Nota: Ajusta esto si tu etiqueta 1 es Humano. 
         # En tu árbol: class 1 solía ser Bot.
