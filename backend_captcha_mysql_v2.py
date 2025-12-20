@@ -117,7 +117,7 @@ def guardar_captcha():
         if SCALER:
             print("Transformando datos...", flush=True)
             # ESTA ES LA LÍNEA MÁGICA
-             X_input = SCALER.transform(X_input) 
+            X_input = SCALER.transform(X_input) 
             print("Datos escalados:", X_input, flush=True)
         # Predicción: 0=Humano, 1=Bot (según tu entrenamiento)
         # Nota: Ajusta esto si tu etiqueta 1 es Humano. 
