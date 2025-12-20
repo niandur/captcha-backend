@@ -114,11 +114,11 @@ def guardar_captcha():
         print("--- VALORES DE EJEMPLO ---", flush=True)     # <--- AÑADIR flush=True
         # Convertimos a string para asegurar que se imprime todo
         print(str(X_input.iloc[0].to_dict()), flush=True)   # <--- AÑADIR flush=True
-    if SCALER:
-        print("Transformando datos...", flush=True)
-        # ESTA ES LA LÍNEA MÁGICA
-        X_input = SCALER.transform(X_input) 
-        print("Datos escalados:", X_input, flush=True)
+        if SCALER:
+            print("Transformando datos...", flush=True)
+            # ESTA ES LA LÍNEA MÁGICA
+             X_input = SCALER.transform(X_input) 
+            print("Datos escalados:", X_input, flush=True)
         # Predicción: 0=Humano, 1=Bot (según tu entrenamiento)
         # Nota: Ajusta esto si tu etiqueta 1 es Humano. 
         # En tu árbol: class 1 solía ser Bot.
