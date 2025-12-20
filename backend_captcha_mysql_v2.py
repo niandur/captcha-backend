@@ -9,7 +9,8 @@ import joblib
 import os
 
 app = Flask(__name__)
-CORS(app)
+from flask_cors import CORS
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # --- 1. CARGA DEL MODELO ---
 # Asegúrate de subir 'modelo_bot_final.pkl' a la misma carpeta
