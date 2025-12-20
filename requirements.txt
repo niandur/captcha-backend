@@ -1,3 +1,7 @@
 flask
-mysql-connector-python
 flask-cors
+mysql-connector-python
+pandas
+numpy
+joblib
+scikit-learn
