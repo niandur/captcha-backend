@@ -16,6 +16,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # Asegúrate de subir 'modelo_bot_final.pkl' a la misma carpeta
 try:
     MODELO = joblib.load('modelo_bot_final.pkl')
+    SCALER = joblib.load('scaler_web_v2.pkl')
     print("✅ Modelo cargado correctamente.")
 except:
     print("⚠️ ADVERTENCIA: No se encontró 'modelo_bot_final.pkl'. La predicción fallará.")
@@ -113,7 +114,11 @@ def guardar_captcha():
         print("--- VALORES DE EJEMPLO ---", flush=True)     # <--- AÑADIR flush=True
         # Convertimos a string para asegurar que se imprime todo
         print(str(X_input.iloc[0].to_dict()), flush=True)   # <--- AÑADIR flush=True
-
+    if SCALER:
+        print("Transformando datos...", flush=True)
+        # ESTA ES LA LÍNEA MÁGICA
+        X_input = SCALER.transform(X_input) 
+        print("Datos escalados:", X_input, flush=True)
         # Predicción: 0=Humano, 1=Bot (según tu entrenamiento)
         # Nota: Ajusta esto si tu etiqueta 1 es Humano. 
         # En tu árbol: class 1 solía ser Bot.
