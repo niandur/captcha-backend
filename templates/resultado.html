@@ -15,21 +15,53 @@
     </style>
 </head>
 <body>
-    <div class="card">
-        <h1>Análisis Finalizado</h1>
-        <p>Usuario: <strong>{{ nombre }}</strong></p>
-
-        {% if prediccion == 'BOT' %}
-            <div class="status bot">🤖 DETECTADO: BOT</div>
-            <p>El sistema ha detectado comportamientos automatizados.</p>
-        {% else %}
-            <div class="status humano">👤 VERIFICADO: HUMANO</div>
-            <p>Patrones de movimiento naturales confirmados.</p>
-        {% endif %}
-
-        <p class="score">Probabilidad de ser Bot: {{ prob }}%</p>
+    <div class="container" style="text-align: center; margin-top: 50px; font-family: sans-serif;">
         
-        <a href="https://www.niandur.com/TFM/Captcha_1.html" class="btn">Volver a Probar</a>
+        <h1 id="titulo-estado">Procesando...</h1>
+        
+        <div id="contenido-mensaje"></div>
+
+        <a id="btn-volver" href="Captcha_1.html" style="display:none; margin-top: 20px; padding: 10px 20px; background: #666; color: white; text-decoration: none; border-radius: 5px;">
+            Intentar de nuevo
+        </a>
     </div>
+
+    <script>
+        // LEER LOS DATOS DE LA URL
+        const params = new URLSearchParams(window.location.search);
+        const isHuman = params.get('is_human') === 'true'; // Convertimos texto "true" a booleano
+        const prob = params.get('prob');
+        const nombre = params.get('nombre');
+
+        const titulo = document.getElementById('titulo-estado');
+        const contenido = document.getElementById('contenido-mensaje');
+        const btnVolver = document.getElementById('btn-volver');
+
+        if (isHuman) {
+            // --- SI ES HUMANO (VERDE) ---
+            document.body.style.backgroundColor = "#e8f5e9"; 
+            titulo.innerText = "✅ Verificación Exitosa";
+            titulo.style.color = "green";
+            contenido.innerHTML = `
+                <h2>¡Hola, ${nombre}!</h2>
+                <p>Hemos confirmado que eres humano.</p>
+                <p>Nivel de sospecha: <strong>${prob}%</strong> (Bajo)</p>
+                <p>Tu formulario ha sido enviado correctamente.</p>
+            `;
+        } else {
+            // --- SI ES BOT (ROJO) ---
+            document.body.style.backgroundColor = "#ffebee";
+            titulo.innerText = "🤖 Acceso Denegado";
+            titulo.style.color = "#d32f2f";
+            contenido.innerHTML = `
+                <h2>Lo sentimos, ${nombre}</h2>
+                <p>El sistema ha detectado patrones automatizados.</p>
+                <p style="font-size: 1.2em;">Probabilidad de Bot: <strong>${prob}%</strong></p>
+                <p>Por favor, intenta realizar el movimiento de forma más natural.</p>
+            `;
+            // Mostramos el botón para volver
+            btnVolver.style.display = "inline-block";
+        }
+    </script>
 </body>
 </html>
