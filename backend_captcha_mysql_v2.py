@@ -7,179 +7,240 @@ import pandas as pd
 import numpy as np
 import joblib
 import os
+from datetime import datetime
 
 app = Flask(__name__)
 from flask_cors import CORS
 CORS(app, resources={r"/*": {"origins": "*"}})
+# --- CONFIGURACIÓN BASE DE DATOS ---
+DB_CONFIG = {
+    'host': 'qaot733.niandur.com',
+    'user': 'qaot733',
+    'password': 'Omega73bd',
+    'database': 'qaot733'
+}
 
-# Inicializa la variable globalmente
-SCALER = None
-# --- 1. CARGA DEL MODELO ---
-# Asegúrate de subir 'modelo_bot_final.pkl' a la misma carpeta
+# --- CARGA DE ARTEFACTOS (CEREBROS DEL MODELO) ---
+# Asegúrate de que estos archivos estén en la misma carpeta
 try:
-    MODELO = joblib.load('modelo_bot_final.pkl')
-    SCALER = joblib.load('scaler_final.pkl')
-    print("✅ Modelo cargado correctamente.")
-except:
-    print("⚠️ ADVERTENCIA: No se encontró 'modelo_bot_final.pkl'. La predicción fallará.")
+    print("⏳ Cargando modelos...")
+    MODELO = joblib.load('modelo_rf_final.pkl')
+    SCALER = joblib.load('escalador_final.pkl')
+    # La lista exacta de columnas que me diste:
+    COLUMNAS_ENTRENAMIENTO = [
+        'longitud_trayectoria', 'distancia_total_norm', 'velocidad_media_norm', 
+        'velocidad_std', 'aceleracion_std', 'ratio_clics', 'curvatura_media', 
+        'curvatura_std', 'tiempo_total', 'forma_estimativa_lineal', 'forma_estimativa_suave'
+    ]
+    print("✅ Modelos cargados. Sistema listo para inferencia.")
+except Exception as e:
+    print(f"❌ ERROR CRÍTICO AL CARGAR MODELOS: {e}")
+    print("El sistema funcionará en modo 'colección de datos' pero no podrá predecir.")
     MODELO = None
+    SCALER = None
+    COLUMNAS_ENTRENAMIENTO = []
 
-# --- 2. CONFIGURACIÓN BASE DE DATOS (INTACTA) ---
-def get_connection():
-    return mysql.connector.connect(
-        host="qaot733.niandur.com",
-        user="qaot733",
-        password="Omega73bd!",
-        database="qaot733"
-    )
+def preprocesar_input(data_raw):
+    """
+    Transforma el JSON del frontend en un DataFrame idéntico al del entrenamiento.
+    Replica EXACTAMENTE la lógica de 'calcular_features' del Notebook.
+    """
+    # 1. Extraer datos crudos
+    points = data_raw.get('mouse_movements', [])
+    num_clics = data_raw.get('clicks', 0) # Asegúrate de que el frontend envíe 'clicks'
 
-# --- 3. FUNCIÓN PARA EXTRAER FEATURES (NUEVA) ---
-def calcular_features(puntos):
-    if not puntos or len(puntos) < 2:
-        # Devuelve un dataframe con ceros si no hay datos suficientes
-        return pd.DataFrame([np.zeros(11)], columns=[
-            'longitud_trayectoria', 'distancia_total_norm', 'velocidad_media_norm',
-            'velocidad_std', 'aceleracion_std', 'ratio_clics', 'curvatura_media',
-            'curvatura_std', 'tiempo_total', 'forma_estimativa_lineal', 'forma_estimativa_suave'
-        ])
+    # Valores por defecto si la trayectoria está vacía
+    features = {
+        'longitud_trayectoria': 0,
+        'distancia_total_norm': 0.0,
+        'velocidad_media_norm': 0.0,
+        'velocidad_std': 0.0,
+        'aceleracion_std': 0.0,
+        'ratio_clics': 0.0,
+        'curvatura_media': 0.0,
+        'curvatura_std': 0.0,
+        'tiempo_total': 0.0,
+        # Variables categóricas desglosadas (One-Hot Encoding manual)
+        'forma_estimativa_lineal': 0,
+        'forma_estimativa_suave': 0
+    }
 
-    df = pd.DataFrame(puntos, columns=['x', 'y', 't'])
+    if not points or len(points) < 2:
+        return pd.DataFrame([features])
+
+    # 2. Crear DataFrame de la trayectoria (Igual que en el Notebook)
+    df_mov = pd.DataFrame(points)
     
-    # Preprocesamiento seguro
-    dx = df['x'].diff().fillna(0)
-    dy = df['y'].diff().fillna(0)
-    dt = df['t'].diff().fillna(0)
+    # Validar que vengan las columnas necesarias
+    if not {'x', 'y', 't'}.issubset(df_mov.columns):
+        return pd.DataFrame([features])
+
+    # Ordenar y limpiar
+    df_mov = df_mov.sort_values('t')
     
-    distancias = np.sqrt(dx**2 + dy**2)
-    # Evitar división por cero sumando un epsilon
-    velocidades = distancias / (dt + 1e-9) 
-    aceleraciones = velocidades.diff().fillna(0) / (dt + 1e-9)
+    # --- CÁLCULOS MATEMÁTICOS (Réplica del Notebook) ---
+    df_mov['dt'] = df_mov['t'].diff()
+    df_mov['dx'] = df_mov['x'].diff()
+    df_mov['dy'] = df_mov['y'].diff()
     
-    # 11 Features exactas del entrenamiento
-    longitud_trayectoria = distancias.sum()
-    distancia_total_norm = longitud_trayectoria # Asumiendo escalado similar
-    velocidad_media_norm = velocidades.mean()
-    velocidad_std = velocidades.std()
-    aceleracion_std = aceleraciones.std()
-    ratio_clics = 0 # Valor por defecto si no se calcula en frontend
+    df_diff = df_mov.dropna().copy()
+    df_diff['dt'] = df_diff['dt'].replace(0, 1e-6) # Evitar división por cero
+
+    # Longitud
+    longitud_trayectoria = len(points)
     
+    # Distancia
+    df_diff['dist_seg'] = np.sqrt(df_diff['dx']**2 + df_diff['dy']**2)
+    distancia_total = df_diff['dist_seg'].sum()
+
+    # Tiempo Total
+    tiempo_total = df_mov['t'].max() - df_mov['t'].min()
+
+    # Velocidad Media
+    velocidad_media = distancia_total / tiempo_total if tiempo_total > 0 else 0
+
+    # Velocidad Std
+    df_diff['velocidad_inst'] = df_diff['dist_seg'] / df_diff['dt']
+    velocidad_std = df_diff['velocidad_inst'].std()
+
+    # Aceleración Std
+    df_diff['dv'] = df_diff['velocidad_inst'].diff()
+    df_diff['aceleracion_inst'] = df_diff['dv'] / df_diff['dt']
+    aceleracion_std = df_diff['aceleracion_inst'].std()
+
+    # Ratio Clics
+    ratio_clics = num_clics / longitud_trayectoria if longitud_trayectoria > 0 else 0
+
     # Curvatura
-    angulos = np.arctan2(dy, dx)
-    cambio_angulo = np.diff(angulos)
-    # Manejo de arrays vacíos para curvatura
-    if len(cambio_angulo) > 0:
-        curvatura_media = np.mean(np.abs(cambio_angulo))
-        curvatura_std = np.std(cambio_angulo)
+    angulos = np.arctan2(df_diff['dy'], df_diff['dx'])
+    diff_angulos = np.diff(angulos)
+    diff_angulos = (diff_angulos + np.pi) % (2 * np.pi) - np.pi
+    diff_angulos_abs = np.abs(diff_angulos)
+
+    if len(diff_angulos_abs) > 0:
+        curvatura_media = np.mean(diff_angulos_abs)
+        curvatura_std = np.std(diff_angulos_abs)
     else:
-        curvatura_media = 0
-        curvatura_std = 0
-        
-    tiempo_total = df['t'].iloc[-1] - df['t'].iloc[0] if len(df) > 0 else 0
+        curvatura_media = 0.0
+        curvatura_std = 0.0
+
+    # Determinar Forma (Lógica original)
+    forma = 'curva' # Valor por defecto (dropping category)
+    if curvatura_media < 0.1 and curvatura_std < 0.2:
+        forma = 'lineal'
+    elif curvatura_media < 0.5:
+        forma = 'suave'
+
+    # Limpieza de NaNs
+    velocidad_std = 0.0 if np.isnan(velocidad_std) else velocidad_std
+    aceleracion_std = 0.0 if np.isnan(aceleracion_std) else aceleracion_std
+
+    # --- ASIGNACIÓN AL DICCIONARIO FINAL ---
+    features['longitud_trayectoria'] = int(longitud_trayectoria)
+    features['distancia_total_norm'] = float(distancia_total) # Mantengo el nombre _norm para coincidir con tu entreno
+    features['velocidad_media_norm'] = float(velocidad_media)
+    features['velocidad_std'] = float(velocidad_std)
+    features['aceleracion_std'] = float(aceleracion_std)
+    features['ratio_clics'] = float(ratio_clics)
+    features['curvatura_media'] = float(curvatura_media)
+    features['curvatura_std'] = float(curvatura_std)
+    features['tiempo_total'] = float(tiempo_total)
     
-    forma_estimativa_lineal = 1.0 if curvatura_media < 0.1 else 0.0
-    forma_estimativa_suave = 1.0 if (curvatura_media >= 0.1 and curvatura_media < 0.5) else 0.0
+    # One-Hot Encoding Manual para coincidir con COLUMNAS_ENTRENAMIENTO
+    features['forma_estimativa_lineal'] = 1 if forma == 'lineal' else 0
+    features['forma_estimativa_suave'] = 1 if forma == 'suave' else 0
     
-    features = pd.DataFrame([{
-        'longitud_trayectoria': longitud_trayectoria,
-        'distancia_total_norm': distancia_total_norm,
-        'velocidad_media_norm': velocidad_media_norm,
-        'velocidad_std': velocidad_std,
-        'aceleracion_std': aceleracion_std,
-        'ratio_clics': ratio_clics,
-        'curvatura_media': curvatura_media,
-        'curvatura_std': curvatura_std,
-        'tiempo_total': tiempo_total,
-        'forma_estimativa_lineal': forma_estimativa_lineal,
-        'forma_estimativa_suave': forma_estimativa_suave
-    }])
-    
-    return features
+    # Crear DataFrame de 1 fila
+    return pd.DataFrame([features])
 
-# --- 4. RUTAS ---
-
-@app.route("/guardar_captcha", methods=["POST", "OPTIONS"])
-def guardar_captcha():
-    if request.method == "OPTIONS":
-        return "", 204
-
-    datos = request.get_json()
-    print("🧾 Recibido datos de:", datos.get("nombre"))
-
+def guardar_interaccion(data, prediccion, probabilidad):
+    """Guarda los datos y la predicción en MySQL"""
+    conn = None
     try:
-        # A) LÓGICA DE PREDICCIÓN (NUEVA)
-        movimientos = datos.get("movimientos") or []
-        X_input = calcular_features(movimientos)
-        
-        print("--- ORDEN DE COLUMNAS ---", flush=True)      # <--- AÑADIR flush=True
-        print(X_input.columns.tolist(), flush=True)         # <--- AÑADIR flush=True
-
-        print("--- VALORES DE EJEMPLO ---", flush=True)     # <--- AÑADIR flush=True
-        # Convertimos a string para asegurar que se imprime todo
-        print(str(X_input.iloc[0].to_dict()), flush=True)   # <--- AÑADIR flush=True
-        if SCALER:
-            print("Transformando datos...", flush=True)
-            # ESTA ES LA LÍNEA MÁGICA
-            X_input = SCALER.transform(X_input) 
-            print("Datos escalados:", X_input, flush=True)
-        # Predicción: 0=Humano, 1=Bot (según tu entrenamiento)
-        # Nota: Ajusta esto si tu etiqueta 1 es Humano. 
-        # En tu árbol: class 1 solía ser Bot.
-
-        es_bot = int(MODELO.predict(X_input)[0]) if MODELO else 0
-        probabilidad = float(MODELO.predict_proba(X_input)[0][1]) if MODELO else 0.0
-        
-        etiqueta_predicha = "BOT" if es_bot == 1 else "HUMANO"
-
-        # B) GUARDADO EN MYSQL (EXISTENTE + PREDICCIÓN)
-        # Nota: Guardamos tal cual lo tenías, pero podrías querer guardar la predicción
-        conn = get_connection()
+        conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
-        movimientos_json = json.dumps(movimientos)
-
-        sql = """
-            INSERT INTO captcha_resultados (
-                nombre, email, duracion_total_ms, longitud_trayectoria, 
-                clics, label, tipo_fuente, movimientos_json
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        query = """
+        INSERT INTO interacciones 
+        (session_id, user_agent, timestamp, total_time, mouse_data, keystrokes_data, 
+         es_bot_prediccion, probabilidad_bot, navegador_info)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
-        # Nota: en 'label' estamos guardando lo que venía del frontend (datos.get("label"))
-        # Si quieres guardar lo que predijo el modelo, cambia datos.get("label") por es_bot
+        
+        # Serializar JSONs
+        mouse_json = json.dumps(data.get('mouse_movements', []))
+        keys_json = json.dumps(data.get('keystrokes', []))
+        nav_json = json.dumps(data.get('navigator_info', {}))
+        
         valores = (
-            datos.get("nombre"),
-            datos.get("email"),
-            datos.get("duracion_total_ms"),
-            datos.get("longitud_trayectoria"),
-            datos.get("clics"),
-            datos.get("label"), 
-            datos.get("tipo_fuente"),
-            movimientos_json
+            data.get('session_id', 'unknown'),
+            data.get('user_agent', 'unknown'),
+            datetime.now(),
+            data.get('total_time', 0),
+            mouse_json,
+            keys_json,
+            int(prediccion),
+            float(probabilidad),
+            nav_json
         )
-        cursor.execute(sql, valores)
+        cursor.execute(query, valores)
         conn.commit()
-        cursor.close()
-        conn.close()
-
-        # C) RESPUESTA CON REDIRECCIÓN (MODIFICADO)
-        # Devolvemos la URL a la que el frontend debe ir
-        return jsonify({
-            "message": "Procesado",
-            "redirect_url": f"/ver_resultado?nombre={datos.get('nombre')}&prediccion={etiqueta_predicha}&prob={probabilidad:.2f}"
-        })
-
+        print(f"💾 Guardado en BD. ID: {cursor.lastrowid}")
     except Exception as e:
-        print("❌ Error:", e)
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        print(f"❌ Error guardando en BD: {e}")
+    finally:
+        if conn and conn.is_connected():
+            cursor.close()
+            conn.close()
 
-# Nueva ruta para mostrar el HTML del resultado
-@app.route("/ver_resultado")
-def ver_resultado():
-    nombre = request.args.get('nombre', 'Usuario')
-    prediccion = request.args.get('prediccion', 'DESCONOCIDO')
-    prob = request.args.get('prob', '0')
-    return render_template('resultado.html', nombre=nombre, prediccion=prediccion, prob=prob)
+@app.route('/api/verify-human', methods=['POST'])
+def verify_human():
+    data = request.json
+    
+    prediccion = 0 # 0 = Humano (por defecto)
+    probabilidad_bot = 0.0
+    
+    if MODELO and SCALER:
+        try:
+            # 1. Calcular Features (Igual que el notebook)
+            df_features = preprocesar_input(data)
+            
+            # 2. Asegurar orden de columnas
+            # Esto filtra cualquier feature extra y pone el orden correcto
+            # Si falta alguna columna crítica, rellenamos con 0
+            for col in COLUMNAS_ENTRENAMIENTO:
+                if col not in df_features.columns:
+                    df_features[col] = 0
+            
+            df_final = df_features[COLUMNAS_ENTRENAMIENTO]
+            
+            # 3. Escalar (Usando el cerebro guardado)
+            X_scaled = SCALER.transform(df_final)
+            
+            # 4. Predecir
+            prediccion = MODELO.predict(X_scaled)[0]
+            probabilidad_bot = MODELO.predict_proba(X_scaled)[0][1]
+            
+            print(f"🧠 Análisis: {'🤖 BOT' if prediccion == 1 else '👤 HUMANO'}")
+            print(f"📊 Probabilidad de ser Bot: {probabilidad_bot:.4f}")
+            print(f"📉 Datos procesados: {df_final.iloc[0].to_dict()}")
 
-if __name__ == "__main__":
-    import os
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+        except Exception as e:
+            print(f"⚠️ Error durante la predicción: {e}")
+            # En caso de error, dejamos pasar (fail-open) o bloqueamos (fail-closed) según prefieras
+            
+    # Guardar en BD
+    guardar_interaccion(data, prediccion, probabilidad_bot)
+    
+    # Lógica de respuesta (Umbral de decisión)
+    # Si el modelo dice Bot (1), devolvemos is_human = False
+    es_humano = True if prediccion == 0 else False
+    
+    return jsonify({
+        "success": True,
+        "is_human": es_humano,
+        "bot_probability": probabilidad_bot
+    })
+
+if __name__ == '__main__':
+    print("🚀 Iniciando Backend Captcha V2...")
+    app.run(host='0.0.0.0', port=5000, debug=True)
