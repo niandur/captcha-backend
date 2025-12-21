@@ -6,8 +6,8 @@
     <title>Resultado del Análisis</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -16,94 +16,105 @@
         }
         .card {
             background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             text-align: center;
-            max-width: 450px;
+            max-width: 400px;
             width: 90%;
-            transition: all 0.3s ease;
         }
-        h1 { margin: 0 0 20px 0; font-size: 26px; }
-        .info-group {
-            background-color: #f8f9fa;
-            border-radius: 8px;
+        h1 { color: #333; margin-bottom: 5px; }
+        .usuario { color: #666; margin-bottom: 20px; font-size: 1.1em; }
+        
+        /* Cajas de estado */
+        .status-box {
             padding: 15px;
+            border-radius: 5px;
             margin: 20px 0;
-            text-align: left;
+            font-weight: bold;
+            display: none; /* Ocultos por defecto */
         }
-        .info-group p { margin: 8px 0; color: #555; font-size: 15px; }
-        .dato-valor { font-weight: bold; color: #333; }
+        
+        /* Estilo BOT */
+        .bot-box {
+            background-color: #ffe6e6;
+            border: 1px solid #ffcccc;
+            color: #cc0000;
+        }
+        
+        /* Estilo HUMANO */
+        .human-box {
+            background-color: #e6fffa;
+            border: 1px solid #ccffe6;
+            color: #006633;
+        }
+
+        .probabilidad { font-size: 0.9em; color: #888; margin-top: 10px; }
         
         .btn {
             display: inline-block;
-            padding: 12px 30px;
+            margin-top: 20px;
+            padding: 10px 20px;
             background-color: #007bff;
             color: white;
             text-decoration: none;
-            border-radius: 6px;
+            border-radius: 5px;
             font-weight: bold;
-            transition: background 0.2s;
         }
         .btn:hover { background-color: #0056b3; }
-
-        /* Estilos condicionales */
-        .humano-style h1 { color: #28a745; }
-        .humano-style { border-top: 6px solid #28a745; }
-        
-        .bot-style h1 { color: #dc3545; }
-        .bot-style { border-top: 6px solid #dc3545; }
     </style>
 </head>
 <body>
 
-    <div class="card" id="tarjeta">
-        <h1 id="titulo-estado">Cargando...</h1>
+    <div class="card">
+        <h1>Análisis Finalizado</h1>
         
-        <p id="subtitulo">Resultado del análisis de comportamiento</p>
+        <p class="usuario">Usuario: <span id="nombre-usuario">Cargando...</span></p>
 
-        <div class="info-group">
-            <p>👤 Nombre: <span id="val-nombre" class="dato-valor">-</span></p>
-            <p>📧 Email: <span id="val-email" class="dato-valor">-</span></p>
-            <p>🤖 Probabilidad Bot: <span id="val-prob" class="dato-valor">-</span></p>
+        <div id="caja-bot" class="status-box bot-box">
+            🤖 DETECTADO: BOT
+            <p style="font-weight: normal; font-size: 0.9em; margin-top: 5px;">
+                El sistema ha detectado comportamientos automatizados.
+            </p>
         </div>
 
-        <a href="Captcha_1.html" class="btn">Volver al Inicio</a>
+        <div id="caja-humano" class="status-box human-box">
+            👤 VERIFICADO: HUMANO
+            <p style="font-weight: normal; font-size: 0.9em; margin-top: 5px;">
+                Patrones de movimiento naturales confirmados.
+            </p>
+        </div>
+
+        <p class="probabilidad">Probabilidad de ser Bot: <span id="val-prob">0</span>%</p>
+
+        <a href="Captcha_1.html" class="btn">Volver a Probar</a>
     </div>
 
     <script>
-        // Usamos este evento para asegurar que el HTML existe antes de leer nada
         document.addEventListener("DOMContentLoaded", function() {
-            
-            // 1. LEER LOS DATOS DE LA BARRA DE DIRECCIÓN
+            // 1. LEER LOS DATOS DE LA URL
+            // Captcha_1.html envía algo como: ?nombre=Juan&is_human=true&prob=12.5
             const params = new URLSearchParams(window.location.search);
             
-            // Leemos y decodificamos (decodeURIComponent arregla los %20 y espacios)
             const nombre = params.get('nombre') || "Anónimo";
-            const email = params.get('email') || "No especificado";
             const prob = params.get('prob') || "0";
-            const isHuman = params.get('is_human') === 'true'; // Convierte texto a true/false
+            
+            // Ojo: los params vienen siempre como texto ("true" o "false")
+            const isHuman = params.get('is_human') === 'true'; 
 
-            // 2. ESCRIBIR LOS DATOS EN EL HTML (Rellenamos los huecos)
-            document.getElementById('val-nombre').textContent = nombre;
-            document.getElementById('val-email').textContent = email;
-            document.getElementById('val-prob').textContent = prob + "%";
+            // 2. RELLENAR LOS TEXTOS
+            document.getElementById('nombre-usuario').textContent = nombre;
+            document.getElementById('val-prob').textContent = prob;
 
-            // 3. CAMBIAR EL DISEÑO (VERDE O ROJO)
-            const tarjeta = document.getElementById('tarjeta');
-            const titulo = document.getElementById('titulo-estado');
-            const subtitulo = document.getElementById('subtitulo');
-
+            // 3. MOSTRAR LA CAJA CORRECTA
             if (isHuman) {
-                // --- MODO HUMANO ---
-                titulo.textContent = "✅ ¡Verificación Exitosa!";
-                subtitulo.textContent = "Hemos confirmado que eres humano.";
-                tarjeta.classList.add('humano-style');
+                // Es humano -> Mostramos caja verde, ocultamos roja
+                document.getElementById('caja-humano').style.display = 'block';
+                document.getElementById('caja-bot').style.display = 'none';
             } else {
-                // --- MODO BOT ---
-                titulo.textContent = "🤖 Acceso Denegado";
-                subtitulo.textContent = "El sistema ha detectado comportamiento robotizado.";
-                tarjeta.classList.add('bot-style');
+                // Es bot -> Mostramos caja roja, ocultamos verde
+                document.getElementById('caja-bot').style.display = 'block';
+                document.getElementById('caja-humano').style.display = 'none';
             }
         });
     </script>
