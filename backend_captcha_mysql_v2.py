@@ -153,7 +153,7 @@ def preprocesar_input(data_raw):
     # Crear DataFrame de 1 fila
     return pd.DataFrame([features])
 
-def guardar_captcha(data, prediccion, probabilidad):
+def guardar_interaccion(data, prediccion, probabilidad):
     """Guarda los datos y la predicción en MySQL"""
     conn = None
     try:
@@ -229,7 +229,7 @@ def verify_human():
             # En caso de error, dejamos pasar (fail-open) o bloqueamos (fail-closed) según prefieras
             
     # Guardar en BD
-    guardar_captcha(data, prediccion, probabilidad_bot)
+    guardar_interaccion(data, prediccion, probabilidad_bot)
     
     # Lógica de respuesta (Umbral de decisión)
     # Si el modelo dice Bot (1), devolvemos is_human = False
