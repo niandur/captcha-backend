@@ -2,34 +2,110 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resultado del Análisis</title>
     <style>
-        body { font-family: 'Arial', sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
-        h1 { margin-bottom: 10px; color: #333; }
-        .status { font-size: 28px; font-weight: bold; margin: 20px 0; padding: 15px; border-radius: 8px; }
-        .bot { background-color: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
-        .humano { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
-        .score { color: #666; font-size: 14px; }
-        .btn { display: inline-block; margin-top: 20px; text-decoration: none; background: #007bff; color: white; padding: 10px 20px; border-radius: 5px; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            transition: all 0.3s ease;
+        }
+        h1 { margin: 0 0 20px 0; font-size: 26px; }
+        .info-group {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .info-group p { margin: 8px 0; color: #555; font-size: 15px; }
+        .dato-valor { font-weight: bold; color: #333; }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 30px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .btn:hover { background-color: #0056b3; }
+
+        /* Estilos condicionales */
+        .humano-style h1 { color: #28a745; }
+        .humano-style { border-top: 6px solid #28a745; }
+        
+        .bot-style h1 { color: #dc3545; }
+        .bot-style { border-top: 6px solid #dc3545; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h1>Análisis Finalizado</h1>
-        <p>Usuario: <strong>{{ nombre }}</strong></p>
 
-        {% if prediccion == 'BOT' %}
-            <div class="status bot">🤖 DETECTADO: BOT</div>
-            <p>El sistema ha detectado comportamientos automatizados.</p>
-        {% else %}
-            <div class="status humano">👤 VERIFICADO: HUMANO</div>
-            <p>Patrones de movimiento naturales confirmados.</p>
-        {% endif %}
-
-        <p class="score">Probabilidad de ser Bot: {{ prob }}%</p>
+    <div class="card" id="tarjeta">
+        <h1 id="titulo-estado">Cargando...</h1>
         
-        <a href="https://www.niandur.com/TFM/Captcha_1.html" class="btn">Volver a Probar</a>
+        <p id="subtitulo">Resultado del análisis de comportamiento</p>
+
+        <div class="info-group">
+            <p>👤 Nombre: <span id="val-nombre" class="dato-valor">-</span></p>
+            <p>📧 Email: <span id="val-email" class="dato-valor">-</span></p>
+            <p>🤖 Probabilidad Bot: <span id="val-prob" class="dato-valor">-</span></p>
+        </div>
+
+        <a href="Captcha_1.html" class="btn">Volver al Inicio</a>
     </div>
+
+    <script>
+        // Usamos este evento para asegurar que el HTML existe antes de leer nada
+        document.addEventListener("DOMContentLoaded", function() {
+            
+            // 1. LEER LOS DATOS DE LA BARRA DE DIRECCIÓN
+            const params = new URLSearchParams(window.location.search);
+            
+            // Leemos y decodificamos (decodeURIComponent arregla los %20 y espacios)
+            const nombre = params.get('nombre') || "Anónimo";
+            const email = params.get('email') || "No especificado";
+            const prob = params.get('prob') || "0";
+            const isHuman = params.get('is_human') === 'true'; // Convierte texto a true/false
+
+            // 2. ESCRIBIR LOS DATOS EN EL HTML (Rellenamos los huecos)
+            document.getElementById('val-nombre').textContent = nombre;
+            document.getElementById('val-email').textContent = email;
+            document.getElementById('val-prob').textContent = prob + "%";
+
+            // 3. CAMBIAR EL DISEÑO (VERDE O ROJO)
+            const tarjeta = document.getElementById('tarjeta');
+            const titulo = document.getElementById('titulo-estado');
+            const subtitulo = document.getElementById('subtitulo');
+
+            if (isHuman) {
+                // --- MODO HUMANO ---
+                titulo.textContent = "✅ ¡Verificación Exitosa!";
+                subtitulo.textContent = "Hemos confirmado que eres humano.";
+                tarjeta.classList.add('humano-style');
+            } else {
+                // --- MODO BOT ---
+                titulo.textContent = "🤖 Acceso Denegado";
+                subtitulo.textContent = "El sistema ha detectado comportamiento robotizado.";
+                tarjeta.classList.add('bot-style');
+            }
+        });
+    </script>
 </body>
 </html>
