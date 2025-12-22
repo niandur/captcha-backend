@@ -266,7 +266,9 @@ def predict():
         logging.info("== PREDICT: recibido JSON ==")
         logging.info(payload)
         sys.stdout.flush()
-
+        logging.info(f"MYSQL_HOST={os.getenv('MYSQL_HOST')}")
+        logging.info(f"MYSQL_DATABASE={os.getenv('MYSQL_DATABASE')}")
+        logging.info(f"MYSQL_USER={os.getenv('MYSQL_USER')}")
         # Features
         features_dict = calcular_features(payload)
         df_final = build_df_final(features_dict)
