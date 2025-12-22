@@ -12,7 +12,12 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 
 app = Flask(__name__, template_folder="templates")
-CORS(app, resources={r"/*": {"origins": "*"}})
+
+CORS(
+    app,
+    resources={r"/*": {"origins": "*"}},
+    supports_credentials=True
+)
 
 # ============================================================
 # Config DB (RENDER: usa variables de entorno)
@@ -247,7 +252,12 @@ def health():
 def predict():
     try:
         payload = request.get_json(force=True) or {}
-
+        if request.method == "OPTIONS":
+            response = jsonify({"ok": True})
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+            response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+            return response, 200
         # Fallback session_id si no viene
         if not payload.get("session_id"):
             payload["session_id"] = f"session_{int(datetime.utcnow().timestamp())}"
