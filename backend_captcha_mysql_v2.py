@@ -280,32 +280,48 @@ def predict():
         # Escalado (manteniendo nombres para evitar warnings)
         X_scaled = SCALER.transform(df_final[FEATURES])
 
-        # Predicción
-        if hasattr(MODEL, "predict_proba"):
-            proba = MODEL.predict_proba(X_scaled)[0]
-            # Asumimos clase 1 = bot (si tu modelo codifica al revés, invierte)
-            prob_bot = float(proba[1]) if len(proba) > 1 else float(proba[0])
-        else:
-            pred = MODEL.predict(X_scaled)[0]
-            prob_bot = float(pred)
+    # =========================
+    # Predicción (robusta)
+    # =========================
+    if hasattr(MODEL, "predict_proba"):
+        proba = MODEL.predict_proba(X_scaled)[0]
+        classes = list(getattr(MODEL, "classes_", []))  # normalmente [0, 1]
 
-        es_bot = 1 if prob_bot >= BOT_THRESHOLD else 0
-        is_human = (es_bot == 0)
+        # En tu dataset: label 1 = HUMANO, label 0 = BOT
+        prob_human = float(proba[classes.index(1)]) if 1 in classes else None
+        prob_bot = float(proba[classes.index(0)]) if 0 in classes else None
 
-        # Guardar en MySQL
-        ok_db, err_db = guardar_interaccion_mysql(payload, es_bot, prob_bot)
-        logging.info(f"== MYSQL RESULT == ok={ok_db} err={err_db}")
-        sys.stdout.flush()
+        # Predicción final (más fiable que umbral si hay lío de clases)
+        pred_label = int(MODEL.predict(X_scaled)[0])  # 1=humano, 0=bot
+    else:
+        # Sin predict_proba: usamos predict directamente
+        pred_label = int(MODEL.predict(X_scaled)[0])
+        prob_human = None
+        prob_bot = None
 
-        return jsonify(
-            {
-                "success": True,
-                "is_human": is_human,
-                "prob": prob_bot,
-                "saved_to_db": ok_db,
-                "db_error": err_db,
-            }
-        ), 200
+    is_human = (pred_label == 1)
+    es_bot = 0 if is_human else 1
+
+    # =========================
+    # Guardar en MySQL
+    # =========================
+    ok_db, err_db = guardar_interaccion_mysql(payload, es_bot, prob_bot if prob_bot is not None else float(1 - pred_label))
+    logging.info(f"== MYSQL RESULT == ok={ok_db} err={err_db}")
+    sys.stdout.flush()
+
+    # =========================
+    # Respuesta
+    # =========================
+    return jsonify(
+        {
+            "success": True,
+            "is_human": is_human,
+            "prob_human": prob_human,
+            "prob_bot": prob_bot,
+            "saved_to_db": ok_db,
+            "db_error": err_db,
+        }
+    ), 200
 
     except Exception as e:
         logging.error("ERROR /predict: %s", str(e))
