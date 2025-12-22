@@ -71,9 +71,10 @@ def guardar_interaccion_mysql(payload: dict, es_bot: int, prob_bot: float):
     Guarda la interacción completa en MySQL.
     Ajusta nombres de campos según tu tabla real.
     """
-    print("DB_CONFIG:", {k: ("***" if "password" in k.lower() else v) for k,v in DB_CONFIG.items()})
+
     try:
         conn = get_db_connection()
+        print("DB_CONFIG:", {k: ("***" if "password" in k.lower() else v) for k,v in DB_CONFIG.items()})
         cur = conn.cursor()
 
         session_id = payload.get("session_id")
