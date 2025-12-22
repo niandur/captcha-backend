@@ -22,8 +22,6 @@ logging.basicConfig(level=logging.INFO)
 # Flask
 # ============================================================
 app = Flask(__name__, template_folder="templates")
-
-# CORS global (por si acaso; preflight lo atendemos también explícitamente)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # ============================================================
@@ -36,19 +34,41 @@ DB_CONFIG = {
     "database": os.getenv("MYSQL_DATABASE", ""),
     "port": int(os.getenv("MYSQL_PORT", "3306")),
 }
-
 TABLE_NAME = os.getenv("MYSQL_TABLE", "interacciones")
 
 # ============================================================
-# Modelo / Escalador
+# Modelo / Scalers
 # ============================================================
 MODEL_PATH = os.getenv("MODEL_PATH", "modelo_final.pkl")
-SCALER_PATH = os.getenv("SCALER_PATH", "scaler_final.pkl")
+
+# StandardScaler del notebook de entrenamiento (si lo usaste)
+STD_SCALER_PATH = os.getenv("SCALER_PATH", "scaler_final.pkl")
+
+# NUEVOS: artefactos que has generado del notebook de normalización
+MINMAX_PATH = os.getenv("MINMAX_PATH", "minmax_scaler.pkl")
+CLIP_BOUNDS_PATH = os.getenv("CLIP_BOUNDS_PATH", "clip_bounds.json")
+
+BOT_THRESHOLD = float(os.getenv("BOT_THRESHOLD", "0.5"))
 
 MODEL = joblib.load(MODEL_PATH)
-SCALER = joblib.load(SCALER_PATH)
+STD_SCALER = joblib.load(STD_SCALER_PATH) if os.path.exists(STD_SCALER_PATH) else None
+MINMAX_SCALER = joblib.load(MINMAX_PATH) if os.path.exists(MINMAX_PATH) else None
 
-# Features EXACTAS que tu modelo espera (según lo que indicaste)
+CLIP_BOUNDS = None
+if os.path.exists(CLIP_BOUNDS_PATH):
+    with open(CLIP_BOUNDS_PATH, "r", encoding="utf-8") as f:
+        CLIP_BOUNDS = json.load(f)
+
+logging.info(f"MODEL_PATH={MODEL_PATH} exists={os.path.exists(MODEL_PATH)}")
+logging.info(f"STD_SCALER_PATH={STD_SCALER_PATH} exists={os.path.exists(STD_SCALER_PATH)}")
+logging.info(f"MINMAX_PATH={MINMAX_PATH} exists={os.path.exists(MINMAX_PATH)}")
+logging.info(f"CLIP_BOUNDS_PATH={CLIP_BOUNDS_PATH} exists={os.path.exists(CLIP_BOUNDS_PATH)}")
+logging.info(f"MODEL.classes_={getattr(MODEL,'classes_',None)}")
+
+# ============================================================
+# Features EXACTAS que tu modelo espera
+# (las que indicaste como definitivas)
+# ============================================================
 FEATURES = [
     "longitud_trayectoria",
     "distancia_total_norm",
@@ -62,9 +82,6 @@ FEATURES = [
     "forma_estimativa_lineal",
     "forma_estimativa_suave",
 ]
-
-BOT_THRESHOLD = float(os.getenv("BOT_THRESHOLD", "0.5"))  # ajustable
-
 
 # ============================================================
 # Helpers DB
@@ -85,15 +102,13 @@ def guardar_interaccion_mysql(payload: dict, es_bot: int, prob_bot: float):
 
         session_id = payload.get("session_id")
         user_agent = payload.get("user_agent") or request.headers.get("User-Agent", "")
-        total_time = payload.get("total_time")  # ms (según frontend)
-        clicks = payload.get("clicks", 0)
+        total_time = payload.get("total_time")  # ms según frontend
         navigator_info = payload.get("navigator_info", {})
         mouse_data = payload.get("mouse_movements", [])
         keystrokes_data = payload.get("keystrokes_data", None)
 
         mouse_json = json.dumps(mouse_data, ensure_ascii=False)
         nav_json = json.dumps(navigator_info, ensure_ascii=False)
-
         ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
         sql = f"""
@@ -120,7 +135,7 @@ def guardar_interaccion_mysql(payload: dict, es_bot: int, prob_bot: float):
                 ts,
                 total_time,
                 mouse_json,
-                keystrokes_data,     # None si no lo usas
+                keystrokes_data,
                 int(es_bot),
                 float(prob_bot),
                 nav_json,
@@ -137,7 +152,7 @@ def guardar_interaccion_mysql(payload: dict, es_bot: int, prob_bot: float):
 
 
 # ============================================================
-# Feature engineering
+# Feature engineering (RAW)
 # ============================================================
 def _safe_float(x, default=0.0):
     try:
@@ -148,11 +163,11 @@ def _safe_float(x, default=0.0):
 
 def calcular_features(payload: dict) -> dict:
     """
-    Construye un dict con TODAS las FEATURES esperadas por el modelo.
+    Construye dict con TODAS las FEATURES esperadas por el modelo.
     El frontend debe enviar:
-      - mouse_movements: lista de {x,y,t}
+      - mouse_movements: lista {x,y,t} con t relativo (ms)
       - clicks: int
-      - total_time: ms
+      - total_time: ms (duración)
     """
     points = payload.get("mouse_movements", [])
     clicks = int(payload.get("clicks", 0))
@@ -164,15 +179,16 @@ def calcular_features(payload: dict) -> dict:
     feat["longitud_trayectoria"] = float(longitud)
     feat["tiempo_total"] = float(total_time_ms)
 
-    # Ratio clicks (mantenemos consistente con tu pipeline; si lo entrenaste por tiempo, ajústalo)
+    # IMPORTANTE: este ratio debe coincidir con tu TFM.
+    # Si en el notebook era clicks por tiempo: usa esto:
+    # feat["ratio_clics"] = clicks / max(total_time_ms, 1.0)
+    # Si era clicks por puntos (lo que tenías antes): usa esto:
     feat["ratio_clics"] = float(clicks / max(longitud, 1))
 
     if longitud < 2:
-        # No hay suficiente info para curvatura/velocidad; dejamos 0
         return feat
 
     df = pd.DataFrame(points)
-
     for col in ("x", "y", "t"):
         if col not in df.columns:
             df[col] = 0.0
@@ -188,11 +204,10 @@ def calcular_features(payload: dict) -> dict:
     dt = df["t"].diff().replace(0, np.nan)
 
     dist_inst = np.sqrt(dx**2 + dy**2).fillna(0.0)
-    distancia_total = dist_inst.sum()
+    distancia_total = float(dist_inst.sum())
 
-    # OJO: aquí ponemos distancia_total en "distancia_total_norm".
-    # Si en tu entrenamiento la "norm" era otra fórmula, aquí debes replicarla.
-    feat["distancia_total_norm"] = float(distancia_total)
+    # OJO: aunque el nombre tenga _norm, aquí son RAW.
+    feat["distancia_total_norm"] = distancia_total
 
     vel_inst = (dist_inst / dt).replace([np.inf, -np.inf], np.nan).fillna(0.0)
     feat["velocidad_media_norm"] = float(vel_inst.mean())
@@ -201,7 +216,7 @@ def calcular_features(payload: dict) -> dict:
     acc_inst = (vel_inst.diff() / dt).replace([np.inf, -np.inf], np.nan).fillna(0.0)
     feat["aceleracion_std"] = float(acc_inst.std(ddof=0) if len(acc_inst) > 1 else 0.0)
 
-    # Curvatura: cambios absolutos de ángulo
+    # Curvatura (cambios absolutos de ángulo)
     ang = np.arctan2(dy.fillna(0.0), dx.fillna(0.0))
     d_ang = np.diff(ang)
     d_ang = (d_ang + np.pi) % (2 * np.pi) - np.pi
@@ -210,9 +225,8 @@ def calcular_features(payload: dict) -> dict:
     feat["curvatura_media"] = float(np.mean(d_ang_abs)) if len(d_ang_abs) else 0.0
     feat["curvatura_std"] = float(np.std(d_ang_abs)) if len(d_ang_abs) else 0.0
 
-    # One-hot de forma estimativa (mínimo viable)
-    # Si en tu notebook la forma se calculaba distinto, aquí debes copiar exactamente esa lógica.
-    # Esto al menos asegura que las columnas existen y son numéricas.
+    # One-hot mínimo (si en el notebook era diferente, cópialo aquí)
+    # Estas columnas existen en el CSV final y deben ser numéricas 0/1.
     forma_lineal = 1.0 if feat["curvatura_media"] < 0.25 else 0.0
     forma_suave = 1.0 if (0.25 <= feat["curvatura_media"] < 0.60 and feat["curvatura_std"] < 0.50) else 0.0
     feat["forma_estimativa_lineal"] = forma_lineal
@@ -224,7 +238,6 @@ def calcular_features(payload: dict) -> dict:
 def build_df_final(features_dict: dict) -> pd.DataFrame:
     df = pd.DataFrame([features_dict])
 
-    # Asegurar todas las columnas y orden correcto
     for c in FEATURES:
         if c not in df.columns:
             df[c] = 0.0
@@ -235,16 +248,65 @@ def build_df_final(features_dict: dict) -> pd.DataFrame:
 
 
 # ============================================================
+# Normalización: clip + minmax + standard
+# ============================================================
+def clip_features(df: pd.DataFrame) -> pd.DataFrame:
+    if not CLIP_BOUNDS:
+        return df
+
+    df2 = df.copy()
+    for col in FEATURES:
+        if col in CLIP_BOUNDS:
+            p01 = CLIP_BOUNDS[col].get("p01", None)
+            p99 = CLIP_BOUNDS[col].get("p99", None)
+            if p01 is not None and p99 is not None:
+                df2[col] = df2[col].clip(lower=float(p01), upper=float(p99))
+    return df2
+
+
+def transform_pipeline(df_raw: pd.DataFrame):
+    """
+    Replica el pipeline del notebook:
+      RAW -> clip -> MinMax.transform -> StandardScaler.transform -> X_scaled
+    """
+    df_clip = clip_features(df_raw)
+
+    if MINMAX_SCALER is None:
+        raise RuntimeError("MINMAX_SCALER no cargado. Revisa MINMAX_PATH.")
+
+    X_minmax = MINMAX_SCALER.transform(df_clip[FEATURES])
+
+    # Esta es la línea que decías que no encontrabas:
+    # (StandardScaler aplicado DESPUÉS de MinMax, si así lo entrenaste)
+    if STD_SCALER is not None:
+        X_scaled = STD_SCALER.transform(X_minmax)
+    else:
+        X_scaled = X_minmax
+
+    return df_clip, X_minmax, X_scaled
+
+
+# ============================================================
 # Routes
 # ============================================================
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"ok": True})
+    return jsonify(
+        {
+            "ok": True,
+            "model_loaded": MODEL is not None,
+            "std_scaler_loaded": STD_SCALER is not None,
+            "minmax_loaded": MINMAX_SCALER is not None,
+            "clip_bounds_loaded": CLIP_BOUNDS is not None,
+            "model_classes": list(getattr(MODEL, "classes_", [])),
+            "features": FEATURES,
+        }
+    )
 
 
 @app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
-    # Preflight
+    # Preflight CORS
     if request.method == "OPTIONS":
         resp = jsonify({"ok": True})
         resp.headers.add("Access-Control-Allow-Origin", "*")
@@ -255,73 +317,74 @@ def predict():
     try:
         payload = request.get_json(force=True) or {}
 
-        # Fallback session_id
         if not payload.get("session_id"):
             payload["session_id"] = f"session_{int(datetime.utcnow().timestamp())}"
 
-        # Fallback user_agent
         if not payload.get("user_agent"):
             payload["user_agent"] = request.headers.get("User-Agent", "")
 
-        logging.info("== PREDICT: recibido JSON ==")
-        logging.info(payload)
-        sys.stdout.flush()
-        logging.info(f"MYSQL_HOST={os.getenv('MYSQL_HOST')}")
-        logging.info(f"MYSQL_DATABASE={os.getenv('MYSQL_DATABASE')}")
-        logging.info(f"MYSQL_USER={os.getenv('MYSQL_USER')}")
-        # Features
+        # 1) features RAW
         features_dict = calcular_features(payload)
-        df_final = build_df_final(features_dict)
+        df_raw = build_df_final(features_dict)
 
-        logging.info("== DF_FINAL (1 fila) ==")
-        logging.info(df_final.iloc[0].to_dict())
+        logging.info("== FEATURES RAW ==")
+        logging.info(df_raw.iloc[0].to_dict())
         sys.stdout.flush()
 
-        # Escalado (manteniendo nombres para evitar warnings)
-        X_scaled = SCALER.transform(df_final[FEATURES])
+        # 2) pipeline normalización igual notebook
+        df_clip, X_minmax, X_scaled = transform_pipeline(df_raw)
 
-    # =========================
-    # Predicción (robusta)
-    # =========================
-    if hasattr(MODEL, "predict_proba"):
-        proba = MODEL.predict_proba(X_scaled)[0]
-        classes = list(getattr(MODEL, "classes_", []))  # normalmente [0, 1]
+        logging.info("== FEATURES AFTER CLIP ==")
+        logging.info(df_clip.iloc[0].to_dict())
+        sys.stdout.flush()
 
-        # En tu dataset: label 1 = HUMANO, label 0 = BOT
-        prob_human = float(proba[classes.index(1)]) if 1 in classes else None
-        prob_bot = float(proba[classes.index(0)]) if 0 in classes else None
+        logging.info("== FEATURES AFTER MINMAX (primeras 5) ==")
+        logging.info(X_minmax[0][:5].tolist())
+        sys.stdout.flush()
 
-        # Predicción final (más fiable que umbral si hay lío de clases)
+        # 3) predicción robusta (sin invertir clases)
         pred_label = int(MODEL.predict(X_scaled)[0])  # 1=humano, 0=bot
-    else:
-        # Sin predict_proba: usamos predict directamente
-        pred_label = int(MODEL.predict(X_scaled)[0])
+        is_human = (pred_label == 1)
+        es_bot = 0 if is_human else 1
+
         prob_human = None
         prob_bot = None
+        if hasattr(MODEL, "predict_proba"):
+            proba = MODEL.predict_proba(X_scaled)[0]
+            classes = list(getattr(MODEL, "classes_", []))
 
-    is_human = (pred_label == 1)
-    es_bot = 0 if is_human else 1
+            if 1 in classes:
+                prob_human = float(proba[classes.index(1)])
+            if 0 in classes:
+                prob_bot = float(proba[classes.index(0)])
 
-    # =========================
-    # Guardar en MySQL
-    # =========================
-    ok_db, err_db = guardar_interaccion_mysql(payload, es_bot, prob_bot if prob_bot is not None else float(1 - pred_label))
-    logging.info(f"== MYSQL RESULT == ok={ok_db} err={err_db}")
-    sys.stdout.flush()
+        # fallback si no hay prob_bot por cualquier motivo
+        if prob_bot is None and prob_human is not None:
+            prob_bot = float(1.0 - prob_human)
+        if prob_human is None and prob_bot is not None:
+            prob_human = float(1.0 - prob_bot)
 
-    # =========================
-    # Respuesta
-    # =========================
-    return jsonify(
-        {
-            "success": True,
-            "is_human": is_human,
-            "prob_human": prob_human,
-            "prob_bot": prob_bot,
-            "saved_to_db": ok_db,
-            "db_error": err_db,
-        }
-    ), 200
+        # Umbral (opcional) — yo recomiendo usar pred_label, pero lo dejo por si lo quieres:
+        # es_bot = 1 if (prob_bot is not None and prob_bot >= BOT_THRESHOLD) else 0
+        # is_human = (es_bot == 0)
+
+        # 4) guardar en MySQL
+        ok_db, err_db = guardar_interaccion_mysql(payload, es_bot, float(prob_bot if prob_bot is not None else 0.0))
+        logging.info(f"== MYSQL RESULT == ok={ok_db} err={err_db}")
+        sys.stdout.flush()
+
+        # 5) respuesta (mantengo 'prob' para tu frontend actual)
+        return jsonify(
+            {
+                "success": True,
+                "is_human": is_human,
+                "prob": float(prob_bot if prob_bot is not None else 0.0),  # compatibilidad frontend
+                "prob_bot": prob_bot,
+                "prob_human": prob_human,
+                "saved_to_db": ok_db,
+                "db_error": err_db,
+            }
+        ), 200
 
     except Exception as e:
         logging.error("ERROR /predict: %s", str(e))
@@ -332,17 +395,12 @@ def predict():
 
 @app.route("/resultado", methods=["GET"])
 def resultado():
-    """
-    Si llamas así:
-      /resultado?is_human=true&prob=0.12
-    renderiza resultado.html
-    """
     is_human = request.args.get("is_human", "false").lower() == "true"
     prob = request.args.get("prob", "0.0")
     return render_template("resultado.html", is_human=is_human, prob=prob)
 
 
 if __name__ == "__main__":
-    logging.info("🚀 Backend iniciado")
+    logging.info("Backend iniciado")
     sys.stdout.flush()
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=True)
