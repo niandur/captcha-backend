@@ -1,8 +1,10 @@
 import os
 import json
 import traceback
-from datetime import datetime
+import logging, sys
+logging.basicConfig(level=logging.INFO)
 
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import joblib
@@ -90,7 +92,10 @@ def guardar_interaccion_mysql(payload: dict, es_bot: int, prob_bot: float):
         nav_json = json.dumps(navigator_info, ensure_ascii=False)
 
         ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        logging.info("== MYSQL: intentando guardar ==")
+        sys.stdout.flush()
 
+        ok_db, err_db = guardar_interaccion_mysql(payload, es_bot, prob_bot)
         sql = f"""
         INSERT INTO {TABLE_NAME}
         (
@@ -121,6 +126,8 @@ def guardar_interaccion_mysql(payload: dict, es_bot: int, prob_bot: float):
             ),
         )
         conn.commit()
+        logging.info(f"== MYSQL RESULT == ok={ok_db} err={err_db}")
+        sys.stdout.flush()
         cur.close()
         conn.close()
         return True, None
@@ -251,6 +258,9 @@ def health():
 
 @app.route("/predict", methods=["POST"])
 def predict():
+    logging.info("== PREDICT: recibido JSON ==")
+    logging.info(request.get_json(silent=True))
+    sys.stdout.flush()
     try:
         payload = request.get_json(force=True) or {}
         if request.method == "OPTIONS":
