@@ -39,7 +39,7 @@ TABLE_NAME = os.getenv("MYSQL_TABLE", "interacciones")
 # ============================================================
 # Modelo / Scalers
 # ============================================================
-MODEL_PATH = os.getenv("MODEL_PATH", "modelo_final.pkl")
+MODEL_PATH = os.getenv("MODEL_PATH", "modelo_rf_final.pkl")
 
 # StandardScaler del notebook de entrenamiento (si lo usaste)
 STD_SCALER_PATH = os.getenv("SCALER_PATH", "scaler_final.pkl")
