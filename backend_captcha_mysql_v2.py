@@ -342,7 +342,7 @@ def predict():
         X_scaled_df = pd.DataFrame(X_scaled, columns=FEATURES)
         pred_label = MODEL.predict(X_scaled_df)[0]
         is_human = (pred_label == 1)
-        es_bot = 0 if is_human else 1
+        # es_bot = 0 if is_human else 1
 
         prob_human = None
         prob_bot = None
@@ -364,8 +364,11 @@ def predict():
         # Umbral (opcional) — yo recomiendo usar pred_label, pero lo dejo por si lo quieres:
         # es_bot = 1 if (prob_bot is not None and prob_bot >= BOT_THRESHOLD) else 0
         # is_human = (es_bot == 0)
-
+        logging.info(
+        f"DEBUG PRED: pred_label={pred_label} | is_human={is_human} | es_bot={es_bot}"
+        )
         # 4) guardar en MySQL
+        es_bot = 1 if pred_label == 0 else 0
         ok_db, err_db = guardar_interaccion_mysql(payload, es_bot, float(prob_bot if prob_bot is not None else 0.0))
         logging.info(f"== MYSQL RESULT == ok={ok_db} err={err_db}")
         sys.stdout.flush()
