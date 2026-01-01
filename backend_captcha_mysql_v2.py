@@ -358,7 +358,6 @@ def predict():
         # Umbral (opcional) — yo recomiendo usar pred_label, pero lo dejo por si lo quieres:
         # es_bot = 1 if (prob_bot is not None and prob_bot >= BOT_THRESHOLD) else 0
         # is_human = (es_bot == 0)
-
         # 4) guardar en MySQL
         es_bot = 1 if pred_label == 0 else 0
         logging.info(
@@ -376,7 +375,6 @@ def predict():
         prob_bot = float(prob_bot)
         prob_human = float(prob_human) if prob_human is not None else None
         # ------------------------------------
-
         # 5) respuesta (mantengo 'prob' para tu frontend actual)
         
         return jsonify(
@@ -396,8 +394,6 @@ def predict():
         traceback.print_exc()
         sys.stdout.flush()
         return jsonify({"success": False, "error": str(e)}), 500
-
-
 @app.route("/resultado", methods=["GET"])
 def resultado():
     is_human = request.args.get("is_human", "false").lower() == "true"
