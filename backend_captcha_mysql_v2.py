@@ -42,7 +42,7 @@ TABLE_NAME = os.getenv("MYSQL_TABLE", "interacciones")
 MODEL_PATH = os.getenv("MODEL_PATH", "modelo_rf_final.pkl")
 
 # StandardScaler del notebook de entrenamiento (si lo usaste)
-STD_SCALER_PATH = os.getenv("SCALER_PATH", "scaler_final.pkl")
+# STD_SCALER_PATH = os.getenv("SCALER_PATH", "escalador_final.pkl")
 
 # NUEVOS: artefactos que has generado del notebook de normalización
 MINMAX_PATH = os.getenv("MINMAX_PATH", "minmax_scaler.pkl")
@@ -51,7 +51,7 @@ CLIP_BOUNDS_PATH = os.getenv("CLIP_BOUNDS_PATH", "clip_bounds.json")
 BOT_THRESHOLD = float(os.getenv("BOT_THRESHOLD", "0.5"))
 
 MODEL = joblib.load(MODEL_PATH)
-STD_SCALER = joblib.load(STD_SCALER_PATH) if os.path.exists(STD_SCALER_PATH) else None
+#STD_SCALER = joblib.load(STD_SCALER_PATH) if os.path.exists(STD_SCALER_PATH) else None
 MINMAX_SCALER = joblib.load(MINMAX_PATH) if os.path.exists(MINMAX_PATH) else None
 
 CLIP_BOUNDS = None
@@ -60,7 +60,7 @@ if os.path.exists(CLIP_BOUNDS_PATH):
         CLIP_BOUNDS = json.load(f)
 
 logging.info(f"MODEL_PATH={MODEL_PATH} exists={os.path.exists(MODEL_PATH)}")
-logging.info(f"STD_SCALER_PATH={STD_SCALER_PATH} exists={os.path.exists(STD_SCALER_PATH)}")
+#logging.info(f"STD_SCALER_PATH={STD_SCALER_PATH} exists={os.path.exists(STD_SCALER_PATH)}")
 logging.info(f"MINMAX_PATH={MINMAX_PATH} exists={os.path.exists(MINMAX_PATH)}")
 logging.info(f"CLIP_BOUNDS_PATH={CLIP_BOUNDS_PATH} exists={os.path.exists(CLIP_BOUNDS_PATH)}")
 logging.info(f"MODEL.classes_={getattr(MODEL,'classes_',None)}")
@@ -262,24 +262,18 @@ def clip_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def transform_pipeline(df_raw: pd.DataFrame):
     """
-    Replica el pipeline del notebook:
-      RAW -> clip -> MinMax.transform -> StandardScaler.transform -> X_scaled
+    Replica el pipeline FINAL del entrenamiento:
+      RAW -> (clip opcional) -> MinMax.transform -> X_scaled
     """
     df_clip = clip_features(df_raw)
 
     if MINMAX_SCALER is None:
         raise RuntimeError("MINMAX_SCALER no cargado. Revisa MINMAX_PATH.")
 
-    X_minmax = MINMAX_SCALER.transform(df_clip[FEATURES])
+    # SOLO MinMaxScaler (el del entrenamiento)
+    X_scaled = MINMAX_SCALER.transform(df_clip[FEATURES])
 
-    # Esta es la línea que decías que no encontrabas:
-    # (StandardScaler aplicado DESPUÉS de MinMax, si así lo entrenaste)
-    if STD_SCALER is not None:
-        X_scaled = STD_SCALER.transform(X_minmax)
-    else:
-        X_scaled = X_minmax
-
-    return df_clip, X_minmax, X_scaled
+    return df_clip, X_scaled
 
 
 # ============================================================
@@ -328,14 +322,14 @@ def predict():
         sys.stdout.flush()
 
         # 2) pipeline normalización igual notebook
-        df_clip, X_minmax, X_scaled = transform_pipeline(df_raw)
+        df_clip, X_scaled = transform_pipeline(df_raw)
 
         logging.info("== FEATURES AFTER CLIP ==")
         logging.info(df_clip.iloc[0].to_dict())
         sys.stdout.flush()
 
         logging.info("== FEATURES AFTER MINMAX (primeras 5) ==")
-        logging.info(X_minmax[0][:5].tolist())
+        logging.info(X_scaled[0][:5].tolist())
         sys.stdout.flush()
 
         # 3) predicción robusta (sin invertir clases)
