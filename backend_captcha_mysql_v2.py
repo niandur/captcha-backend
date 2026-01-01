@@ -247,18 +247,18 @@ def build_df_final(features_dict: dict) -> pd.DataFrame:
 # Normalización: clip + minmax + standard
 # ============================================================
 def clip_features(df: pd.DataFrame) -> pd.DataFrame:
-    if not CLIP_BOUNDS:
-        return df
-
-    df2 = df.copy()
-    for col in FEATURES:
-        if col in CLIP_BOUNDS:
-            p01 = CLIP_BOUNDS[col].get("p01", None)
-            p99 = CLIP_BOUNDS[col].get("p99", None)
-            if p01 is not None and p99 is not None:
-                df2[col] = df2[col].clip(lower=float(p01), upper=float(p99))
-    return df2
-
+# En producción No se aplica Clipping. Sólo en offline para estabilizar entrenamiento  
+#  if not CLIP_BOUNDS:
+#        return df
+#
+#    df2 = df.copy()
+#    for col in FEATURES:
+#        if col in CLIP_BOUNDS:
+#            p01 = CLIP_BOUNDS[col].get("p01", None)
+#            p99 = CLIP_BOUNDS[col].get("p99", None)
+#            if p01 is not None and p99 is not None:
+#                df2[col] = df2[col].clip(lower=float(p01), upper=float(p99))
+    return df
 
 def transform_pipeline(df_raw: pd.DataFrame):
     """
