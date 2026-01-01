@@ -369,8 +369,14 @@ def predict():
         ok_db, err_db = guardar_interaccion_mysql(payload, es_bot, float(prob_bot if prob_bot is not None else 0.0))
         logging.info(f"== MYSQL RESULT == ok={ok_db} err={err_db}")
         sys.stdout.flush()
+        # --- FORZAR TIPOS JSON COMPATIBLES ---
+        is_human = bool(is_human)
+        prob_bot = float(prob_bot)
+        pred_label = int(pred_label)
+        # ------------------------------------
 
         # 5) respuesta (mantengo 'prob' para tu frontend actual)
+        
         return jsonify(
             {
                 "success": True,
