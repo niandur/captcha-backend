@@ -79,8 +79,6 @@ FEATURES = [
     "curvatura_media",
     "curvatura_std",
     "tiempo_total",
-    "forma_estimativa_lineal",
-    "forma_estimativa_suave",
 ]
 
 # ============================================================
@@ -224,10 +222,6 @@ def calcular_features(payload: dict) -> dict:
 
     feat["curvatura_media"] = float(np.mean(d_ang_abs)) if len(d_ang_abs) else 0.0
     feat["curvatura_std"] = float(np.std(d_ang_abs)) if len(d_ang_abs) else 0.0
-
-    feat["forma_estimativa_lineal"] = 0.0
-    feat["forma_estimativa_suave"] = 0.0
-
     return feat
 
 
