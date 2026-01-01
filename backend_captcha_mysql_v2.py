@@ -45,14 +45,14 @@ MODEL_PATH = os.getenv("MODEL_PATH", "modelo_rf_final.pkl")
 # STD_SCALER_PATH = os.getenv("SCALER_PATH", "escalador_final.pkl")
 
 # NUEVOS: artefactos que has generado del notebook de normalización
-MINMAX_PATH = os.getenv("MINMAX_PATH", "minmax_scaler.pkl")
+#MINMAX_PATH = os.getenv("MINMAX_PATH", "minmax_scaler.pkl")
 CLIP_BOUNDS_PATH = os.getenv("CLIP_BOUNDS_PATH", "clip_bounds.json")
 
 BOT_THRESHOLD = float(os.getenv("BOT_THRESHOLD", "0.5"))
 
 MODEL = joblib.load(MODEL_PATH)
 #STD_SCALER = joblib.load(STD_SCALER_PATH) if os.path.exists(STD_SCALER_PATH) else None
-MINMAX_SCALER = joblib.load(MINMAX_PATH) if os.path.exists(MINMAX_PATH) else None
+MINMAX_SCALER = None
 
 CLIP_BOUNDS = None
 if os.path.exists(CLIP_BOUNDS_PATH):
@@ -262,18 +262,12 @@ def clip_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def transform_pipeline(df_raw: pd.DataFrame):
     """
-    Replica el pipeline FINAL del entrenamiento:
-      RAW -> (clip opcional) -> MinMax.transform -> X_scaled
+    Pipeline final EXACTO del entrenamiento del Random Forest:
+    RAW -> clip -> X
     """
     df_clip = clip_features(df_raw)
-
-    if MINMAX_SCALER is None:
-        raise RuntimeError("MINMAX_SCALER no cargado. Revisa MINMAX_PATH.")
-
-    # SOLO MinMaxScaler (el del entrenamiento)
-    X_scaled = MINMAX_SCALER.transform(df_clip[FEATURES])
-
-    return df_clip, X_scaled
+    X = df_clip[FEATURES].values
+    return df_clip, X
 
 
 # ============================================================
@@ -322,7 +316,7 @@ def predict():
         sys.stdout.flush()
 
         # 2) pipeline normalización igual notebook
-        df_clip, X_scaled = transform_pipeline(df_raw)
+        df_clip, X = transform_pipeline(df_raw)
 
         logging.info("== FEATURES AFTER CLIP ==")
         logging.info(df_clip.iloc[0].to_dict())
@@ -332,17 +326,20 @@ def predict():
         logging.info(X_scaled[0][:5].tolist())
         sys.stdout.flush()
 
-        # 3) predicción robusta (sin invertir clases)
-        X_scaled_df = pd.DataFrame(X_scaled, columns=FEATURES)
-        pred_label = MODEL.predict(X_scaled_df)[0]
+        # 3) predicción (pipeline alineado con el entrenamiento del RF)
+
+        pred_label = MODEL.predict(X)[0]
+
+        # Convención: 1 = humano, 0 = bot
         is_human = (pred_label == 1)
-        # es_bot = 0 if is_human else 1
+        es_bot = int(not is_human)
 
         prob_human = None
         prob_bot = None
+
         if hasattr(MODEL, "predict_proba"):
-            proba = MODEL.predict_proba(X_scaled_df)[0]
-            classes = list(getattr(MODEL, "classes_", []))
+            proba = MODEL.predict_proba(X)[0]
+            classes = list(MODEL.classes_)
 
             if 1 in classes:
                 prob_human = float(proba[classes.index(1)])
@@ -355,24 +352,23 @@ def predict():
         if prob_human is None and prob_bot is not None:
             prob_human = float(1.0 - prob_bot)
 
+
         # Umbral (opcional) — yo recomiendo usar pred_label, pero lo dejo por si lo quieres:
         # es_bot = 1 if (prob_bot is not None and prob_bot >= BOT_THRESHOLD) else 0
         # is_human = (es_bot == 0)
         # 4) guardar en MySQL
-        es_bot = 1 if pred_label == 0 else 0
         logging.info(
         f"DEBUG PRED: pred_label={pred_label} | is_human={is_human} | es_bot={es_bot}"
         )
         ok_db, err_db = guardar_interaccion_mysql(payload, es_bot, float(prob_bot if prob_bot is not None else 0.0))
         logging.info(f"== MYSQL RESULT == ok={ok_db} err={err_db}")
-        logging.info("DEBUG RAW FEATURES: %s", features)
-        logging.info("DEBUG TRAIN MIN: %s", MINMAX_SCALER.data_min_)
-        logging.info("DEBUG TRAIN MAX: %s", MINMAX_SCALER.data_max_)
-        print("=== DEBUG SCALER INFO ===")
-        print("Scaler class:", type(MINMAX_SCALER))
-        print("Scaler min:", MINMAX_SCALER.data_min_)
-        print("Scaler max:", MINMAX_SCALER.data_max_)
-        print("=========================")
+        #logging.info("DEBUG TRAIN MIN: %s", MINMAX_SCALER.data_min_)
+        #logging.info("DEBUG TRAIN MAX: %s", MINMAX_SCALER.data_max_)
+        #print("=== DEBUG SCALER INFO ===")
+        #print("Scaler class:", type(MINMAX_SCALER))
+        #print("Scaler min:", MINMAX_SCALER.data_min_)
+        #print("Scaler max:", MINMAX_SCALER.data_max_)
+        #print("=========================")
 
         sys.stdout.flush()
         # --- FORZAR TIPOS JSON COMPATIBLES ---
