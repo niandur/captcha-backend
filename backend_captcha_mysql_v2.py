@@ -61,7 +61,7 @@ if os.path.exists(CLIP_BOUNDS_PATH):
 
 logging.info(f"MODEL_PATH={MODEL_PATH} exists={os.path.exists(MODEL_PATH)}")
 #logging.info(f"STD_SCALER_PATH={STD_SCALER_PATH} exists={os.path.exists(STD_SCALER_PATH)}")
-logging.info(f"MINMAX_PATH={MINMAX_PATH} exists={os.path.exists(MINMAX_PATH)}")
+#logging.info(f"MINMAX_PATH={MINMAX_PATH} exists={os.path.exists(MINMAX_PATH)}")
 logging.info(f"CLIP_BOUNDS_PATH={CLIP_BOUNDS_PATH} exists={os.path.exists(CLIP_BOUNDS_PATH)}")
 logging.info(f"MODEL.classes_={getattr(MODEL,'classes_',None)}")
 
