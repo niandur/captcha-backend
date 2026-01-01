@@ -321,11 +321,6 @@ def predict():
         logging.info("== FEATURES AFTER CLIP ==")
         logging.info(df_clip.iloc[0].to_dict())
         sys.stdout.flush()
-
-        logging.info("== FEATURES AFTER MINMAX (primeras 5) ==")
-        logging.info(X_scaled[0][:5].tolist())
-        sys.stdout.flush()
-
         # 3) predicción (pipeline alineado con el entrenamiento del RF)
 
         pred_label = MODEL.predict(X)[0]
@@ -351,8 +346,6 @@ def predict():
             prob_bot = float(1.0 - prob_human)
         if prob_human is None and prob_bot is not None:
             prob_human = float(1.0 - prob_bot)
-
-
         # Umbral (opcional) — yo recomiendo usar pred_label, pero lo dejo por si lo quieres:
         # es_bot = 1 if (prob_bot is not None and prob_bot >= BOT_THRESHOLD) else 0
         # is_human = (es_bot == 0)
@@ -369,15 +362,13 @@ def predict():
         #print("Scaler min:", MINMAX_SCALER.data_min_)
         #print("Scaler max:", MINMAX_SCALER.data_max_)
         #print("=========================")
-
         sys.stdout.flush()
         # --- FORZAR TIPOS JSON COMPATIBLES ---
         is_human = bool(is_human)
         prob_bot = float(prob_bot)
         prob_human = float(prob_human) if prob_human is not None else None
         # ------------------------------------
-        # 5) respuesta (mantengo 'prob' para tu frontend actual)
-        
+        # 5) respuesta (mantengo 'prob' para tu frontend actual)    
         return jsonify(
             {
                 "success": True,
@@ -389,7 +380,6 @@ def predict():
                 "db_error": err_db,
             }
         ), 200
-
     except Exception as e:
         logging.error("ERROR /predict: %s", str(e))
         traceback.print_exc()
@@ -400,8 +390,6 @@ def resultado():
     is_human = request.args.get("is_human", "false").lower() == "true"
     prob = request.args.get("prob", "0.0")
     return render_template("resultado.html", is_human=is_human, prob=prob)
-
-
 if __name__ == "__main__":
     logging.info("Backend iniciado")
     sys.stdout.flush()
