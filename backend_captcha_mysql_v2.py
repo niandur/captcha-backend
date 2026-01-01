@@ -261,14 +261,9 @@ def clip_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def transform_pipeline(df_raw: pd.DataFrame):
-    """
-    Pipeline final EXACTO del entrenamiento del Random Forest:
-    RAW -> clip -> X
-    """
     df_clip = clip_features(df_raw)
-    X = df_clip[FEATURES].values
+    X = df_clip[FEATURES]          # ← DataFrame, NO .values
     return df_clip, X
-
 
 # ============================================================
 # Routes
