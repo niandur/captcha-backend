@@ -364,11 +364,12 @@ def predict():
         # Umbral (opcional) — yo recomiendo usar pred_label, pero lo dejo por si lo quieres:
         # es_bot = 1 if (prob_bot is not None and prob_bot >= BOT_THRESHOLD) else 0
         # is_human = (es_bot == 0)
+
+        # 4) guardar en MySQL
+        es_bot = 1 if pred_label == 0 else 0
         logging.info(
         f"DEBUG PRED: pred_label={pred_label} | is_human={is_human} | es_bot={es_bot}"
         )
-        # 4) guardar en MySQL
-        es_bot = 1 if pred_label == 0 else 0
         ok_db, err_db = guardar_interaccion_mysql(payload, es_bot, float(prob_bot if prob_bot is not None else 0.0))
         logging.info(f"== MYSQL RESULT == ok={ok_db} err={err_db}")
         sys.stdout.flush()
