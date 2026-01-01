@@ -207,7 +207,7 @@ def calcular_features(payload: dict) -> dict:
     distancia_total = float(dist_inst.sum())
 
     # OJO: aunque el nombre tenga _norm, aquí son RAW.
-    feat["distancia_total_norm"] = distancia_total
+    feat["distancia_total_norm"] = distancia_total / max(longitud, 1)
 
     vel_inst = (dist_inst / dt).replace([np.inf, -np.inf], np.nan).fillna(0.0)
     feat["velocidad_media_norm"] = float(vel_inst.mean())
@@ -225,12 +225,8 @@ def calcular_features(payload: dict) -> dict:
     feat["curvatura_media"] = float(np.mean(d_ang_abs)) if len(d_ang_abs) else 0.0
     feat["curvatura_std"] = float(np.std(d_ang_abs)) if len(d_ang_abs) else 0.0
 
-    # One-hot mínimo (si en el notebook era diferente, cópialo aquí)
-    # Estas columnas existen en el CSV final y deben ser numéricas 0/1.
-    forma_lineal = 1.0 if feat["curvatura_media"] < 0.25 else 0.0
-    forma_suave = 1.0 if (0.25 <= feat["curvatura_media"] < 0.60 and feat["curvatura_std"] < 0.50) else 0.0
-    feat["forma_estimativa_lineal"] = forma_lineal
-    feat["forma_estimativa_suave"] = forma_suave
+    feat["forma_estimativa_lineal"] = 0.0
+    feat["forma_estimativa_suave"] = 0.0
 
     return feat
 
@@ -343,7 +339,8 @@ def predict():
         sys.stdout.flush()
 
         # 3) predicción robusta (sin invertir clases)
-        pred_label = int(MODEL.predict(X_scaled)[0])  # 1=humano, 0=bot
+        X_scaled_df = pd.DataFrame(X_scaled, columns=FEATURES)
+        pred_label = MODEL.predict(X_scaled_df)[0]
         is_human = (pred_label == 1)
         es_bot = 0 if is_human else 1
 
