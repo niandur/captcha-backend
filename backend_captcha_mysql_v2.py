@@ -366,6 +366,10 @@ def predict():
         )
         ok_db, err_db = guardar_interaccion_mysql(payload, es_bot, float(prob_bot if prob_bot is not None else 0.0))
         logging.info(f"== MYSQL RESULT == ok={ok_db} err={err_db}")
+        logging.info("DEBUG RAW FEATURES: %s", features)
+        logging.info("DEBUG TRAIN MIN: %s", MINMAX_SCALER.data_min_)
+        logging.info("DEBUG TRAIN MAX: %s", MINMAX_SCALER.data_max_)
+
         sys.stdout.flush()
         # --- FORZAR TIPOS JSON COMPATIBLES ---
         is_human = bool(is_human)
