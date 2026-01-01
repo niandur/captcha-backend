@@ -347,7 +347,7 @@ def predict():
         prob_human = None
         prob_bot = None
         if hasattr(MODEL, "predict_proba"):
-            proba = MODEL.predict_proba(X_scaled)[0]
+            proba = MODEL.predict_proba(X_scaled_df)[0]
             classes = list(getattr(MODEL, "classes_", []))
 
             if 1 in classes:
@@ -372,7 +372,7 @@ def predict():
         # --- FORZAR TIPOS JSON COMPATIBLES ---
         is_human = bool(is_human)
         prob_bot = float(prob_bot)
-        pred_label = int(pred_label)
+        prob_human = float(prob_human) if prob_human is not None else None
         # ------------------------------------
 
         # 5) respuesta (mantengo 'prob' para tu frontend actual)
