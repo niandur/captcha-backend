@@ -368,6 +368,11 @@ def predict():
         logging.info("DEBUG RAW FEATURES: %s", features)
         logging.info("DEBUG TRAIN MIN: %s", MINMAX_SCALER.data_min_)
         logging.info("DEBUG TRAIN MAX: %s", MINMAX_SCALER.data_max_)
+        print("=== DEBUG SCALER INFO ===")
+        print("Scaler class:", type(MINMAX_SCALER))
+        print("Scaler min:", MINMAX_SCALER.data_min_)
+        print("Scaler max:", MINMAX_SCALER.data_max_)
+        print("=========================")
 
         sys.stdout.flush()
         # --- FORZAR TIPOS JSON COMPATIBLES ---
